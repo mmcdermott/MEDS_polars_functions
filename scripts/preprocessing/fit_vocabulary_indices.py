@@ -29,7 +29,7 @@ def main(cfg: DictConfig):
     metadata_input_dir = Path(cfg.stage_cfg.metadata_input_dir)
     output_dir = Path(cfg.stage_cfg.output_dir)
 
-    code_metadata = pl.read_parquet(metadata_input_dir / "code_metadata.parquet", use_pyarrow=True)
+    code_metadata = pl.read_parquet(metadata_input_dir.parent / "code_metadata.parquet", use_pyarrow=True)
 
     ordering_method = cfg.stage_cfg.get("ordering_method", VOCABULARY_ORDERING.LEXICOGRAPHIC)
 

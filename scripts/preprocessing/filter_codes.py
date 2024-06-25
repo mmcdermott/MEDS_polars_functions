@@ -35,7 +35,7 @@ def main(cfg: DictConfig):
     patient_splits = list(shards.keys())
     random.shuffle(patient_splits)
 
-    code_metadata = pl.read_parquet(metadata_input_dir / "code_metadata.parquet", use_pyarrow=True)
+    code_metadata = pl.read_parquet(metadata_input_dir.parent / "code_metadata.parquet", use_pyarrow=True)
     compute_fn = filter_codes_fntr(cfg.stage_cfg, code_metadata)
 
     for sp in patient_splits:
