@@ -68,7 +68,7 @@ def main(cfg: DictConfig):
                 logger.info(f"Converting {shard_fp} to events and saving to {out_fp}")
 
                 def compute_fn(df: pl.LazyFrame) -> pl.LazyFrame:
-                    typed_patients = pl.Series(patients, dtype=df.schema[input_patient_id_column])
+                    typed_patients = pl.Series(patients, dtype=df.schema[input_patient_id_column], strict=False)
 
                     if input_patient_id_column != "patient_id":
                         df = df.rename({input_patient_id_column: "patient_id"})
