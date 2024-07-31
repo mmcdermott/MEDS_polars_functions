@@ -59,19 +59,29 @@ def convert_to_prompt_expanded_observation_NRT(tokenized_df: pl.LazyFrame) -> Jo
         ...     print(k)
         ...     print(v)
         code
-        [[  1.   1. 103.   2. 104.   2.]
-         [  1.   1. 105.   2.   0.   0.]
-         [  1.   1. 203.   2. 204.   2.]]
+        [[[  1.   1. 103.   2. 104.   2.]
+          [  1.   1. 105.   2.   0.   0.]]
+        <BLANKLINE>
+         [[  1.   1. 203.   2. 204.   2.]
+          [  0.   0.   0.   0.   0.   0.]]]
         dim1/mask
-        [[ True  True  True  True  True  True]
-         [ True  True  True  True False False]
-         [ True  True  True  True  True  True]]
+        [[ True  True]
+         [ True False]]
+        dim2/mask
+        [[[ True  True  True  True  True  True]
+          [ True  True  True  True False False]]
+        <BLANKLINE>
+         [[ True  True  True  True  True  True]
+          [False False False False False False]]]
         numerical_value
-        [[nan nan nan  2. nan  2.]
-         [nan 12. nan  2.  0.  0.]
-         [nan nan nan  2. nan  2.]]
+        [[[nan nan nan  2. nan  2.]
+          [nan 12. nan  2.  0.  0.]]
+        <BLANKLINE>
+         [[nan nan nan  2. nan  2.]
+          [ 0.  0.  0.  0.  0.  0.]]]
         time_delta_days
-        [nan]
+        [[nan 12.]
+         [nan  0.]]
     """
 
     # There should only be one time delta column, but this ensures we catch it regardless of the unit of time
@@ -86,13 +96,19 @@ def convert_to_prompt_expanded_observation_NRT(tokenized_df: pl.LazyFrame) -> Jo
     time_delta_col = time_delta_cols[0]
 
     data = tokenized_df.select(time_delta_col, "code", "numerical_value").collect().to_dict(as_series=False)
+    output_time_delta_days = []
     output_code = []
     output_numerical_value = []
 
-    for time_delta_days, code, numerical_value in zip(
-        data["time_delta_days"], data["code"], data["numerical_value"]
-    ):
-        # print(time_delta_days, code, numerical_value)
+    for patient_index in range(len(data["time_delta_days"])):
+        time_delta_days, code, numerical_value = (
+            data["time_delta_days"][patient_index],
+            data["code"][patient_index],
+            data["numerical_value"][patient_index],
+        )
+        patient_time_delta_days = time_delta_days
+        patient_codes = []
+        patient_numerical_values = []
         for triplet in zip(time_delta_days, code, numerical_value):
             event_codes = []
             event_numerical_values = []
@@ -108,9 +124,14 @@ def convert_to_prompt_expanded_observation_NRT(tokenized_df: pl.LazyFrame) -> Jo
                 if not np.isnan(value):
                     event_codes.append(VALUE_CODE)
                     event_numerical_values.append(VALUE_CODE)
-            output_code.append(event_codes)
-            output_numerical_value.append(event_numerical_values)
-    output = dict(time_delta_days=time_delta_days, code=output_code, numerical_value=output_numerical_value)
+            patient_codes.append(event_codes)
+            patient_numerical_values.append(event_numerical_values)
+        output_time_delta_days.append(patient_time_delta_days)
+        output_code.append(patient_codes)
+        output_numerical_value.append(patient_numerical_values)
+    output = dict(
+        time_delta_days=output_time_delta_days, code=output_code, numerical_value=output_numerical_value
+    )
     return JointNestedRaggedTensorDict(output)
 
 
