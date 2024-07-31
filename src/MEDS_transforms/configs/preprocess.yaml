@@ -9,6 +9,7 @@ defaults:
       - occlude_outliers
       - fit_normalization
       - fit_vocabulary_indices
+      - tensorization
   - _self_
 
 etl_metadata.pipeline_name: "preprocess"

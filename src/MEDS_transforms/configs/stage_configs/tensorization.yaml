@@ -1,0 +1,2 @@
+tensorization:
+  strategy: "triplet"

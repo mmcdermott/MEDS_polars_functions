@@ -198,10 +198,17 @@ def convert_to_NRT(tokenized_df: pl.LazyFrame) -> JointNestedRaggedTensorDict:
 )
 def main(cfg: DictConfig):
     """TODO."""
+    match cfg.stage_cfg.strategy:
+        case "triplet":
+            convert_func = convert_to_NRT
+        case "prompt_expanded_observation":
+            convert_func = convert_to_prompt_expanded_observation_NRT
+        case _:
+            raise ValueError(f"Unknown tensorization strategy: {cfg.stage_cfg.tensorization.strategy}")
 
     map_over(
         cfg,
-        compute_fn=convert_to_NRT,
+        compute_fn=convert_func,
         write_fn=JointNestedRaggedTensorDict.save,
         shard_iterator_fntr=partial(shard_iterator, in_prefix="event_seqs/", out_suffix=".nrt"),
     )
