@@ -685,9 +685,9 @@ def main(cfg: DictConfig):
     file.
     """
 
-    input_dir, patient_subsharded_dir, metadata_input_dir, shards_map_fn = stage_init(cfg)
+    input_dir, patient_subsharded_dir, metadata_input_dir = stage_init(cfg)
 
-    shards = json.loads(shards_map_fn.read_text())
+    shards = json.loads(Path(cfg.shards_map_fp).read_text())
 
     event_conversion_cfg_fp = Path(cfg.event_conversion_config_fp)
     if not event_conversion_cfg_fp.exists():

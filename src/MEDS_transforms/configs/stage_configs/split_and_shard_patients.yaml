@@ -1,6 +1,6 @@
 split_and_shard_patients:
   is_metadata: True
-  output_dir: ${cohort_dir}
+  output_dir: ${cohort_dir}/metadata
   n_patients_per_shard: 50000
   external_splits_json_fp: null
   split_fracs:

@@ -30,7 +30,7 @@ event_conversion_config_fp: ???
 # The code modifier columns are in this pipeline only used in the aggregate_code_metadata stage.
 code_modifiers: null
 # The shards mapping is stored in the root of the final output directory.
-shards_map_fp: "${cohort_dir}/splits.json"
+shards_map_fp: "${cohort_dir}/metadata/.shards.json"
 
 stages:
   - shard_events

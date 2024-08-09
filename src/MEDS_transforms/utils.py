@@ -9,7 +9,6 @@ from typing import Any
 import hydra
 import polars as pl
 from loguru import logger
-from meds import train_split
 from omegaconf import DictConfig, OmegaConf
 
 from MEDS_transforms import __package_name__ as package_name
@@ -59,15 +58,14 @@ def write_lazyframe(df: pl.LazyFrame, out_fp: Path) -> None:
     df.write_parquet(out_fp, use_pyarrow=True)
 
 
-def stage_init(cfg: DictConfig):
+def stage_init(cfg: DictConfig) -> tuple[Path, Path, Path]:
     """Initializes the stage by logging the configuration and the stage-specific paths.
 
     Args:
         cfg: The global configuration object, which should have a ``cfg.stage_cfg`` attribute containing the
             stage specific configuration.
 
-    Returns: The data input directory, stage output directory, metadata input directory, and the shards file
-        path.
+    Returns: The data input directory, stage output directory, and metadata input directory.
     """
     hydra_loguru_init()
 
@@ -78,7 +76,6 @@ def stage_init(cfg: DictConfig):
     input_dir = Path(cfg.stage_cfg.data_input_dir)
     output_dir = Path(cfg.stage_cfg.output_dir)
     metadata_input_dir = Path(cfg.stage_cfg.metadata_input_dir)
-    shards_map_fp = Path(cfg.shards_map_fp)
 
     def chk(x: Path):
         return "✅" if x.exists() else "❌"
@@ -89,7 +86,6 @@ def stage_init(cfg: DictConfig):
             "input_dir": input_dir,
             "output_dir": output_dir,
             "metadata_input_dir": metadata_input_dir,
-            "shards_map_fp": shards_map_fp,
         }.items()
     ]
 
@@ -99,7 +95,7 @@ def stage_init(cfg: DictConfig):
     ]
     logger.debug("\n".join(logger_strs + paths_strs))
 
-    return input_dir, output_dir, metadata_input_dir, shards_map_fp
+    return input_dir, output_dir, metadata_input_dir
 
 
 def get_package_name() -> str:
@@ -226,7 +222,7 @@ def populate_stage(
         ...         "stage2": {"is_metadata": True},
         ...         "stage3": {"is_metadata": None, "output_dir": "/g/h"},
         ...         "stage4": {"data_input_dir": "/e/f"},
-        ...         "stage5": {"aggregations": ["foo"], "process_split": None},
+        ...         "stage5": {"aggregations": ["foo"], "train_only": None},
         ...     },
         ... })
         >>> args = [root_config[k] for k in ["input_dir", "cohort_dir", "stages", "stage_configs"]]
@@ -235,7 +231,7 @@ def populate_stage(
          'output_dir': '/c/d/stage1', 'reducer_output_dir': None}
         >>> populate_stage("stage2", *args) # doctest: +NORMALIZE_WHITESPACE
         {'is_metadata': True, 'data_input_dir': '/c/d/stage1', 'metadata_input_dir': '/a/b/metadata',
-         'output_dir': '/c/d/stage2', 'reducer_output_dir': '/c/d/stage2', 'process_split': 'train'}
+         'output_dir': '/c/d/stage2', 'reducer_output_dir': '/c/d/stage2', 'train_only': True}
         >>> populate_stage("stage3", *args) # doctest: +NORMALIZE_WHITESPACE
         {'is_metadata': None, 'output_dir': '/g/h', 'data_input_dir': '/c/d/stage1',
          'metadata_input_dir': '/c/d/stage2', 'reducer_output_dir': None}
@@ -243,7 +239,7 @@ def populate_stage(
         {'data_input_dir': '/e/f', 'is_metadata': False,
          'metadata_input_dir': '/c/d/stage2', 'output_dir': '/c/d/stage4', 'reducer_output_dir': None}
         >>> populate_stage("stage5", *args) # doctest: +NORMALIZE_WHITESPACE
-        {'aggregations': ['foo'], 'process_split': None, 'is_metadata': True, 'data_input_dir': '/c/d/stage4',
+        {'aggregations': ['foo'], 'train_only': None, 'is_metadata': True, 'data_input_dir': '/c/d/stage4',
          'metadata_input_dir': '/c/d/stage2', 'output_dir': '/c/d/stage5',
          'reducer_output_dir': '/c/d/metadata'}
         >>> populate_stage("stage6", *args) # doctest: +NORMALIZE_WHITESPACE
@@ -353,7 +349,7 @@ def populate_stage(
     }
 
     if is_metadata:
-        inferred_keys["process_split"] = train_split
+        inferred_keys["train_only"] = True
 
     out = {**stage}
     for key, val in inferred_keys.items():

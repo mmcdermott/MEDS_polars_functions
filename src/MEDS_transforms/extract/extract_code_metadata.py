@@ -349,7 +349,7 @@ def main(cfg: DictConfig):
             schema.
     """
 
-    stage_input_dir, partial_metadata_dir, _, _ = stage_init(cfg)
+    stage_input_dir, partial_metadata_dir, _ = stage_init(cfg)
     raw_input_dir = Path(cfg.input_dir)
 
     event_conversion_cfg_fp = Path(cfg.event_conversion_config_fp)

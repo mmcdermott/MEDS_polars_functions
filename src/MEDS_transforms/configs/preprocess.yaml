@@ -21,9 +21,6 @@ etl_metadata.pipeline_name: "preprocess"
 #    tokenization.
 code_modifiers: ???
 
-# The shards map filepath is stored in the global input directory for model-specific pre-processing.
-shards_map_fp: "${input_dir}/splits.json"
-
 # Pipeline Structure
 stages:
   - filter_patients

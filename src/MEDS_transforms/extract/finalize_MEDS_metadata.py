@@ -146,7 +146,7 @@ def main(cfg: DictConfig):
         logger.info("Non-zero worker found in reduce-only stage. Exiting")
         return
 
-    _, _, input_metadata_dir, shards_map_fp = stage_init(cfg)
+    _, _, input_metadata_dir = stage_init(cfg)
     output_metadata_dir = Path(cfg.stage_cfg.reducer_output_dir)
 
     output_code_metadata_fp = output_metadata_dir / "codes.parquet"
@@ -193,6 +193,7 @@ def main(cfg: DictConfig):
     dataset_metadata_fp.write_text(json.dumps(dataset_metadata))
 
     # Split creation
+    shards_map_fp = Path(cfg.shards_map_fp)
     logger.info("Creating patient splits from {str(shards_map_fp.resolve())}")
     shards_map = json.loads(shards_map_fp.read_text())
     patient_splits = []

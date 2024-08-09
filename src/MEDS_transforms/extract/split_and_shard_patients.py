@@ -186,7 +186,7 @@ def main(cfg: DictConfig):
             ensure that split fractions sum to 1.
     """
 
-    subsharded_dir, MEDS_cohort_dir, _, _ = stage_init(cfg)
+    subsharded_dir, _, _ = stage_init(cfg)
 
     event_conversion_cfg_fp = Path(cfg.event_conversion_config_fp)
     if not event_conversion_cfg_fp.exists():
@@ -249,11 +249,11 @@ def main(cfg: DictConfig):
         seed=cfg.seed,
     )
 
-    logger.info(f"Writing sharded patients to {MEDS_cohort_dir}")
-    MEDS_cohort_dir.mkdir(parents=True, exist_ok=True)
-    out_fp = MEDS_cohort_dir / "splits.json"
-    out_fp.write_text(json.dumps(sharded_patients))
-    logger.info(f"Done writing sharded patients to {out_fp}")
+    shards_map_fp = Path(cfg.shards_map_fp)
+    logger.info(f"Writing sharded patients to {str(shards_map_fp.resolve())}")
+    shards_map_fp.parent.mkdir(parents=True, exist_ok=True)
+    shards_map_fp.write_text(json.dumps(sharded_patients))
+    logger.info("Done writing sharded patients")
 
 
 if __name__ == "__main__":

@@ -441,10 +441,10 @@ def test_extraction():
         all_stdouts.append(stdout)
 
         try:
-            splits_fp = MEDS_cohort_dir / "splits.json"
-            assert splits_fp.is_file(), f"Expected splits @ {str(splits_fp.resolve())} to exist."
+            shards_fp = MEDS_cohort_dir / "metadata" / ".shards.json"
+            assert shards_fp.is_file(), f"Expected splits @ {str(shards_fp.resolve())} to exist."
 
-            splits = json.loads(splits_fp.read_text())
+            splits = json.loads(shards_fp.read_text())
             expected_keys = ["train/0", "train/1", "tuning/0", "held_out/0"]
 
             expected_keys_str = ", ".join(f"'{k}'" for k in expected_keys)

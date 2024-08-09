@@ -157,27 +157,33 @@ def map_over(
 
     start = datetime.now()
 
-    process_split = cfg.stage_cfg.get("process_split", None)
+    train_only = cfg.stage_cfg.get("train_only", False)
     split_fp = Path(cfg.input_dir) / "metadata" / "patient_split.parquet"
-    shards_map_fp = Path(cfg.shards_map_fp) if "shards_map_fp" in cfg else None
-    if process_split and split_fp.exists():
-        split_patients = (
-            pl.scan_parquet(split_fp)
-            .filter(pl.col("split") == process_split)
-            .select(pl.col("patient_id"))
-            .collect()
-            .to_list()
-        )
-        read_fn = read_and_filter_fntr(split_patients, read_fn)
-    elif process_split and shards_map_fp and shards_map_fp.exists():
-        logger.warning(
-            f"Split {process_split} requested, but no patient split file found at {str(split_fp)}. "
-            f"Assuming this is handled through shard filtering."
-        )
-    elif process_split:
-        raise ValueError(
-            f"Split {process_split} requested, but no patient split file found at {str(split_fp)}."
-        )
+
+    shards, includes_only_train = shard_iterator_fntr(cfg)
+
+    if train_only:
+        if includes_only_train:
+            logger.info(
+                f"Processing train split only via shard prefix. Not filtering with {str(split_fp.resolve())}."
+            )
+        elif split_fp.exists():
+            logger.info(f"Processing train split only by filtering read dfs via {str(split_fp.resolve())}")
+            train_patients = (
+                pl.scan_parquet(split_fp)
+                .filter(pl.col("split") == "train")
+                .select(pl.col("patient_id"))
+                .collect()
+                .to_list()
+            )
+            read_fn = read_and_filter_fntr(train_patients, read_fn)
+        else:
+            raise FileNotFoundError(
+                f"Train split requested, but shard prefixes can't be used and "
+                f"patient split file not found at {str(split_fp.resolve())}."
+            )
+    elif includes_only_train:
+        raise ValueError("All splits should be used, but shard iterator is returning only train splits?!?")
 
     def fntr_params(compute_fn: ANY_COMPUTE_FN_T) -> ComputeFnArgs:
         compute_fn_params = inspect.signature(compute_fn).parameters
@@ -209,7 +215,7 @@ def map_over(
             raise ValueError("Invalid compute function")
 
     all_out_fps = []
-    for in_fp, out_fp in shard_iterator_fntr(cfg):
+    for in_fp, out_fp in shards:
         logger.info(f"Processing {str(in_fp.resolve())} into {str(out_fp.resolve())}")
         rwlock_wrap(
             in_fp,

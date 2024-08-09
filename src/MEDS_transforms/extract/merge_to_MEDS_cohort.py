@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import json
+import random
 from functools import partial
 from pathlib import Path
 
@@ -8,7 +10,7 @@ from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 
 from MEDS_transforms.extract import CONFIG_YAML
-from MEDS_transforms.mapreduce.mapper import map_over, shard_iterator
+from MEDS_transforms.mapreduce.mapper import map_over
 
 
 def merge_subdirs_and_sort(
@@ -234,10 +236,37 @@ def main(cfg: DictConfig):
         additional_sort_by=cfg.stage_cfg.get("additional_sort_by", None),
     )
 
+    shard_map_fp = Path(cfg.shards_map_fp)
+    if not shard_map_fp.exists():
+        raise FileNotFoundError(f"Shard map file not found at {str(shard_map_fp.resolve())}")
+
+    shards = list(json.loads(shard_map_fp.read_text()).keys())
+
+    def shard_iterator(cfg: DictConfig) -> tuple[list[str], bool]:
+        input_dir = Path(cfg.stage_cfg.data_input_dir)
+        output_dir = Path(cfg.stage_cfg.output_dir)
+
+        if cfg.stage_cfg.get("train_only", None):
+            raise ValueError("train_only is not supported for this stage.")
+
+        if "worker" in cfg:
+            random.seed(cfg.worker)
+        random.shuffle(shards)
+
+        logger.info(f"Mapping computation over a maximum of {len(shards)} shards")
+
+        out = []
+        for sh in shards:
+            in_fp = input_dir / sh
+            out_fp = output_dir / f"{sh}.parquet"
+            out.append((in_fp, out_fp))
+
+        return out, False
+
     map_over(
         cfg,
         read_fn=read_fn,
-        shard_iterator_fntr=partial(shard_iterator, in_suffix=""),
+        shard_iterator_fntr=shard_iterator,
     )
 
 
