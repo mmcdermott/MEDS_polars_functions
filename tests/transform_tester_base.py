@@ -291,6 +291,7 @@ def single_stage_transform_tester(
     input_shards: dict[str, pl.DataFrame] | None = None,
     do_pass_stage_name: bool = False,
     file_suffix: str = ".parquet",
+    do_use_config_yaml: bool = False,
 ):
     with tempfile.TemporaryDirectory() as d:
         MEDS_dir = Path(d) / "MEDS_cohort"
@@ -337,12 +338,17 @@ def single_stage_transform_tester(
         if transform_stage_kwargs:
             pipeline_config_kwargs["stage_configs"] = {stage_name: transform_stage_kwargs}
 
+        run_command_kwargs = {
+            "script": transform_script,
+            "hydra_kwargs": pipeline_config_kwargs,
+            "test_name": f"Single stage transform: {stage_name}",
+        }
+        if do_use_config_yaml:
+            run_command_kwargs["do_use_config_yaml"] = True
+            run_command_kwargs["config_name"] = "preprocess"
+
         # Run the transform
-        stderr, stdout = run_command(
-            transform_script,
-            pipeline_config_kwargs,
-            f"Single stage transform: {stage_name}",
-        )
+        stderr, stdout = run_command(**run_command_kwargs)
 
         # Check the output
         if isinstance(want_outputs, pl.DataFrame):

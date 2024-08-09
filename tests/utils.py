@@ -1,8 +1,10 @@
 import subprocess
+import tempfile
 from io import StringIO
 from pathlib import Path
 
 import polars as pl
+from omegaconf import OmegaConf
 from polars.testing import assert_frame_equal
 
 DEFAULT_CSV_TS_FORMAT = "%m/%d/%Y, %H:%M:%S"
@@ -102,31 +104,66 @@ def run_command(
     test_name: str,
     config_name: str | None = None,
     should_error: bool = False,
+    do_use_config_yaml: bool = False,
 ):
     script = ["python", str(script.resolve())] if isinstance(script, Path) else [script]
     command_parts = script
-    if config_name is not None:
-        command_parts.append(f"--config-name={config_name}")
-    command_parts.append(" ".join(dict_to_hydra_kwargs(hydra_kwargs)))
+
+    err_cmd_lines = []
+
+    if do_use_config_yaml:
+        if config_name is None:
+            raise ValueError("config_name must be provided if do_use_config_yaml is True.")
+
+        conf = OmegaConf.create(
+            {
+                "defaults": [config_name],
+                **hydra_kwargs,
+            }
+        )
+
+        conf_dir = tempfile.TemporaryDirectory()
+        conf_path = Path(conf_dir.name) / "config.yaml"
+        OmegaConf.save(conf, conf_path)
+
+        command_parts.extend(
+            [
+                f"--config-path={str(conf_path.parent.resolve())}",
+                "--config-name=config",
+                "'hydra.searchpath=[pkg://MEDS_transforms.configs]'",
+            ]
+        )
+        err_cmd_lines.append(f"Using config yaml:\n{OmegaConf.to_yaml(conf)}")
+    else:
+        if config_name is not None:
+            command_parts.append(f"--config-name={config_name}")
+        command_parts.append(" ".join(dict_to_hydra_kwargs(hydra_kwargs)))
 
     full_cmd = " ".join(command_parts)
+    err_cmd_lines.append(f"Running command: {full_cmd}")
     command_out = subprocess.run(full_cmd, shell=True, capture_output=True)
 
     command_errored = command_out.returncode != 0
 
     stderr = command_out.stderr.decode()
+    err_cmd_lines.append(f"stderr:\n{stderr}")
     stdout = command_out.stdout.decode()
+    err_cmd_lines.append(f"stdout:\n{stdout}")
 
     if should_error and not command_errored:
+        if do_use_config_yaml:
+            conf_dir.cleanup()
         raise AssertionError(
-            f"{test_name} failed as command did not error when expected!\n"
-            f"command:{full_cmd}\nstdout:\n{stdout}\nstderr:\n{stderr}"
+            f"{test_name} failed as command did not error when expected!\n" + "\n".join(err_cmd_lines)
         )
     elif not should_error and command_errored:
+        if do_use_config_yaml:
+            conf_dir.cleanup()
         raise AssertionError(
-            f"{test_name} failed as command errored when not expected!"
-            f"\ncommand:{full_cmd}\nstdout:\n{stdout}\nstderr:\n{stderr}"
+            f"{test_name} failed as command errored when not expected!\n" + "\n".join(err_cmd_lines)
         )
+    if do_use_config_yaml:
+        conf_dir.cleanup()
     return stderr, stdout
 
 
