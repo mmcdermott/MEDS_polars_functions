@@ -53,6 +53,7 @@ MEDS_transform-filter_patients = "MEDS_transforms.filters.filter_patients:main"
 ## Transforms
 MEDS_transform-reorder_measurements = "MEDS_transforms.transforms.reorder_measurements:main"
 MEDS_transform-add_time_derived_measurements = "MEDS_transforms.transforms.add_time_derived_measurements:main"
+MEDS_transform-extract_values = "MEDS_transforms.transforms.extract_values:main"
 MEDS_transform-normalization = "MEDS_transforms.transforms.normalization:main"
 MEDS_transform-occlude_outliers = "MEDS_transforms.transforms.occlude_outliers:main"
 MEDS_transform-tensorization = "MEDS_transforms.transforms.tensorization:main"

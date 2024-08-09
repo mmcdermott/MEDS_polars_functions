@@ -101,7 +101,7 @@ be stored in a `patient_id` column. If the patient ID column is not found, an er
 
 Second, you can also specify how to link the codes constructed for each event block to code-specific metadata
 in these blocks. This is done by specifying a `_metadata` block in the event block. The format of this block
-is detailed in the `parser.py` file in this directory; see there for more details. You can also see
+is detailed in the `../parser.py` file in this directory; see there for more details. You can also see
 configuration options for this block in the `tests/test_extract.py` file and in the
 `MIMIC-IV_Example/configs/event_config.yaml` file.
 
