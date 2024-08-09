@@ -76,6 +76,14 @@ def shard_patients[
         Traceback (most recent call last):
             ...
         ValueError: Unable to adjust splits to ensure all splits have at least 1 patient.
+        >>> external_splits = {
+        ...     'train': np.array([1, 2, 3, 4, 5, 6], dtype=int),
+        ...     'test': np.array([7, 8, 9, 10], dtype=int),
+        ... }
+        >>> shard_patients(patients, 6, external_splits)
+        {'train/0': [1, 2, 3, 4, 5, 6], 'test/0': [7, 8, 9, 10]}
+        >>> shard_patients(patients, 3, external_splits)
+        {'train/0': [5, 1, 3], 'train/1': [2, 6, 4], 'test/0': [10, 7], 'test/1': [8, 9]}
     """
 
     if sum(split_fracs_dict.values()) != 1:
@@ -99,31 +107,39 @@ def shard_patients[
     is_in_external_split = np.isin(patients, list(all_external_splits))
     patient_ids_to_split = patients[~is_in_external_split]
 
-    n_patients = len(patient_ids_to_split)
+    splits = external_splits
 
     rng = np.random.default_rng(seed)
-    split_names_idx = rng.permutation(len(split_fracs_dict))
-    split_names = np.array(list(split_fracs_dict.keys()))[split_names_idx]
-    split_fracs = np.array([split_fracs_dict[k] for k in split_names])
-    split_lens = np.round(split_fracs[:-1] * n_patients).astype(int)
-    split_lens = np.append(split_lens, n_patients - split_lens.sum())
+    if n_patients := len(patient_ids_to_split):
+        split_names_idx = rng.permutation(len(split_fracs_dict))
+        split_names = np.array(list(split_fracs_dict.keys()))[split_names_idx]
+        split_fracs = np.array([split_fracs_dict[k] for k in split_names])
+        split_lens = np.round(split_fracs[:-1] * n_patients).astype(int)
+        split_lens = np.append(split_lens, n_patients - split_lens.sum())
 
-    if split_lens.min() == 0:
-        logger.warning(
-            "Some splits are empty. Adjusting splits to ensure all splits have at least 1 patient."
-        )
-        max_split = split_lens.argmax()
-        split_lens[max_split] -= 1
-        split_lens[split_lens.argmin()] += 1
+        if split_lens.min() == 0:
+            logger.warning(
+                "Some splits are empty. Adjusting splits to ensure all splits have at least 1 patient."
+            )
+            max_split = split_lens.argmax()
+            split_lens[max_split] -= 1
+            split_lens[split_lens.argmin()] += 1
 
-    if split_lens.min() == 0:
-        raise ValueError("Unable to adjust splits to ensure all splits have at least 1 patient.")
+        if split_lens.min() == 0:
+            raise ValueError("Unable to adjust splits to ensure all splits have at least 1 patient.")
 
-    patients = rng.permutation(patient_ids_to_split)
-    patients_per_split = np.split(patients, split_lens.cumsum())
+        patients = rng.permutation(patient_ids_to_split)
+        patients_per_split = np.split(patients, split_lens.cumsum())
 
-    splits = {k: v for k, v in zip(split_names, patients_per_split)}
-    splits = {**splits, **external_splits}
+        splits = {**{k: v for k, v in zip(split_names, patients_per_split)}, **splits}
+    else:
+        if split_fracs_dict:
+            logger.warning(
+                "External splits were provided covering all patients, but split_fracs_dict was not empty. "
+                "Ignoring the split_fracs_dict."
+            )
+        else:
+            logger.info("External splits were provided covering all patients.")
 
     # Sharding
     final_shards = {}
@@ -231,7 +247,7 @@ def main(cfg: DictConfig):
         if not external_splits_json_fp.exists():
             raise FileNotFoundError(f"External splits JSON file not found at {external_splits_json_fp}")
 
-        logger.info(f"Reading external splits from {cfg.external_splits_json_fp}")
+        logger.info(f"Reading external splits from {str(cfg.stage_cfg.external_splits_json_fp.resolve())}")
         external_splits = json.loads(external_splits_json_fp.read_text())
 
         size_strs = ", ".join(f"{k}: {len(v)}" for k, v in external_splits.items())
